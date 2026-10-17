@@ -1,6 +1,8 @@
 import unittest
+from io import BytesIO
 
-from documents import chunk_text, retrieve
+from documents import chunk_text, read_uploaded_file, retrieve
+from pypdf import PdfWriter
 
 
 class DocumentTests(unittest.TestCase):
@@ -21,6 +23,23 @@ class DocumentTests(unittest.TestCase):
     def test_invalid_chunk_size_raises(self):
         with self.assertRaises(ValueError):
             chunk_text("sample", "sample.txt", 0)
+
+    def test_txt_upload_is_decoded(self):
+        self.assertEqual(
+            read_uploaded_file("notes.txt", "hello local".encode("utf-8")),
+            "hello local",
+        )
+
+    def test_pdf_upload_is_parsed_in_memory(self):
+        pdf = BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=72, height=72)
+        writer.write(pdf)
+        self.assertEqual(read_uploaded_file("notes.pdf", pdf.getvalue()), "")
+
+    def test_unsupported_upload_is_rejected(self):
+        with self.assertRaises(ValueError):
+            read_uploaded_file("notes.docx", b"contents")
 
 
 if __name__ == "__main__":

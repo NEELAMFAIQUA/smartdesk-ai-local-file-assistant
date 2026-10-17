@@ -1,7 +1,8 @@
 # Local File Assistant
 
-An original, retrieval-only text-document demo. Select `.txt` files explicitly,
-ask a question, and inspect relevant excerpts with file and chunk citations.
+An original local PDF/TXT assistant. Select documents explicitly, retrieve
+relevant excerpts with source citations, and optionally ask an Ollama model
+running on `localhost` to form a grounded answer.
 
 ## Run locally
 
@@ -12,8 +13,9 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Only selected text files are read, in memory for the current app session. This
-prototype makes no model or network calls and does not write uploaded content to
-disk. PDFs are not supported in this minimal version.
+Only selected files are read in memory for the current app session. Retrieval
+works without a model. For generation, install and start Ollama locally and
+download a model such as `llama3.2`; the app calls only the local Ollama API.
+Uploaded content is not sent to a hosted service or written to disk.
 
 Run tests with `python -m unittest discover -s tests -v`.

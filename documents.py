@@ -1,6 +1,7 @@
 """In-memory text splitting and retrieval for user-selected local files."""
 
 import re
+from io import BytesIO
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 
@@ -33,3 +34,48 @@ def retrieve(question, chunks, limit=3):
             scored.append((overlap, index, chunk))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [{**chunk, "score": score} for score, _, chunk in scored[:limit]]
+
+
+def read_uploaded_file(filename, content):
+    """Extract text from a selected TXT or PDF upload, in memory."""
+    suffix = filename.lower().rsplit(".", 1)[-1]
+    if suffix == "txt":
+        return content.decode("utf-8", errors="replace")
+    if suffix == "pdf":
+        from pypdf import PdfReader
+
+        reader = PdfReader(BytesIO(content))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    raise ValueError("Only .txt and .pdf files are supported")
+
+
+def answer_with_local_ollama(question, chunks, model, base_url="http://localhost:11434"):
+    """Use a local Ollama server only; retrieved excerpts remain on this machine."""
+    import requests
+
+    references = retrieve(question, chunks, limit=4)
+    if not references:
+        return "I couldn't find an answer in the selected files.", references
+    context = "\n\n".join(
+        f"[{item['source']} · chunk {item['chunk']}]\n{item['text']}"
+        for item in references
+    )
+    response = requests.post(
+        f"{base_url.rstrip('/')}/api/generate",
+        json={
+            "model": model,
+            "prompt": (
+                "Answer the question using only the provided excerpts. "
+                "If they do not answer it, say so. Cite the source filename.\n\n"
+                f"Excerpts:\n{context}\n\nQuestion: {question}"
+            ),
+            "stream": False,
+        },
+        timeout=90,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    answer = payload.get("response", "").strip()
+    if not answer:
+        raise RuntimeError("The local model returned an empty answer.")
+    return answer, references
